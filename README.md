@@ -1,2 +1,2 @@
 # prefixScan
-Prefix Scan Algorithm implementation on Java (Sequental and Parallel)
+Prefix Scan Algorithm implementation on Java (Sequential and Parallel)
