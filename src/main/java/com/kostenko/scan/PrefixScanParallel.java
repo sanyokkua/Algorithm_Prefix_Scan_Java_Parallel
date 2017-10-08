@@ -7,59 +7,61 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static java.lang.System.arraycopy;
+import static java.util.Arrays.fill;
 
 public class PrefixScanParallel implements PrefixScan<Integer> {
-    private final int numberOfThreads;
     private final ExecutorService executorService;
     private final Lock lock;
 
-    public PrefixScanParallel(int numberOfThreads) {
-        this.numberOfThreads = numberOfThreads;
-        this.executorService = Executors.newFixedThreadPool(this.numberOfThreads);
+    public PrefixScanParallel(ExecutorService executorService) {
+        this.executorService = executorService;
         this.lock = new ReentrantLock();
     }
 
     @Override
-    public List<Integer> computeSum(final Integer[] input, final Function<Integer, Integer> function) {
-        final int size = input.length;
-        final int correctedSize = findCorrectSize(size % 2 == 0 ? size + 1 : size);
-        final int log2n = log2(correctedSize);
-        final Integer[] x = new Integer[correctedSize];
-        arraycopy(input, 0, x, 0, size);
-        fillZeros(x, size);
+    public List<Integer> compute(final Integer[] input, final Function<Integer, Integer> f) {
+        final int inputLength = input.length;
+        final int resultLength = findPowerOf2Size(inputLength % 2 == 0 ? inputLength + 1 : inputLength);
+        final int range = log2(resultLength) - 1;
+        final Integer[] result = new Integer[resultLength];
+        arraycopy(input, 0, result, 0, inputLength);
+        fill(result, inputLength, resultLength, 0);
 
-        for (int d = 0; d <= log2n - 1; d++) {
-            final int p2d1 = pow(2, d + 1);
-            for (int k = 0; k < correctedSize - 1; k += p2d1) {
-                x[k + pow(2, d + 1) - 1] = function.apply(x[k + pow(2, d) - 1], x[k + pow(2, d + 1) - 1]);
+        for (int d = 0; d <= range; d++) {
+            final int pow = pow(2, d + 1);
+            for (int k = 0; k < resultLength - 1; k += pow) {
+                result[k + pow(2, d + 1) - 1] = f.apply(result[k + pow(2, d) - 1], result[k + pow(2, d + 1) - 1]);
             }
         }
-        x[correctedSize - 1] = 0;
-        for (int d = log2n - 1; d >= 0; d--) {
-            final int p2d1 = pow(2, d + 1);
-            for (int k = 0; k < correctedSize - 1; k += p2d1) {
-                int temp = x[k + pow(2, d) - 1];
-                x[k + pow(2, d) - 1] = x[k + pow(2, d + 1) - 1];
-                x[k + pow(2, d + 1) - 1] = function.apply(temp, x[k + pow(2, d + 1) - 1]);
+
+        result[resultLength - 1] = 0;
+        for (int d = range; d >= 0; d--) {
+            final int pow = pow(2, d + 1);
+            for (int k = 0; k < resultLength - 1; k += pow) {
+                int temp = result[k + pow(2, d) - 1];
+                result[k + pow(2, d) - 1] = result[k + pow(2, d + 1) - 1];
+                result[k + pow(2, d + 1) - 1] = f.apply(temp, result[k + pow(2, d + 1) - 1]);
             }
         }
-        executorService.shutdown();
-        List<Integer> result = new ArrayList<>();
-        result.addAll(Arrays.asList(x).subList(1, size == correctedSize ? size : size + 1));
-        return result;
+        return toList(inputLength, resultLength, result);
     }
 
-    private int findCorrectSize(final int size) {
+    private int findPowerOf2Size(final int size) {
         int result = size;
         if ((result & (result - 1)) == 0) {
             return result;
         }
-        for (; (result & (result - 1)) != 0; result++) ;
+        result--;
+        result |= result >> 1;
+        result |= result >> 2;
+        result |= result >> 4;
+        result |= result >> 8;
+        result |= result >> 16;
+        result++;
         return result;
 
     }
@@ -72,9 +74,9 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
         return (int) Math.pow(number, pow);
     }
 
-    private void fillZeros(Integer[] array, int size) {
-        for (int i = size; i < array.length; i++) {
-            array[i] = 0;
-        }
+    private List<Integer> toList(int size, int correctedSize, Integer[] x) {
+        List<Integer> resultList = new ArrayList<>();
+        resultList.addAll(Arrays.asList(x).subList(1, size == correctedSize ? size : size + 1));
+        return resultList;
     }
 }

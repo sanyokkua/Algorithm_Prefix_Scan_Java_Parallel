@@ -9,7 +9,7 @@ import java.util.Objects;
 
 public class PrefixScanLinear implements PrefixScan<Integer> {
     @Override
-    public List<Integer> computeSum(Integer[] input, Function<Integer, Integer> function) {
+    public List<Integer> compute(Integer[] input, Function<Integer, Integer> function) {
         if (Objects.isNull(input) || input.length == 0) {
             throw new IllegalArgumentException("List with input can't be empty");
         }

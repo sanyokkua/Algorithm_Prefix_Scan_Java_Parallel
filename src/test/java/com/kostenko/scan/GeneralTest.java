@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.Assert.assertEquals;
 
@@ -40,10 +40,10 @@ public class GeneralTest {
 
         PrefixScan<Integer> prefixScanLinear = new PrefixScanLinear();
 
-        testGeneratedExpected_1_000 = toArray(prefixScanLinear.computeSum(testGeneratedInput_1_000, PLUS));
-        testGeneratedExpected_10_000 = toArray(prefixScanLinear.computeSum(testGeneratedInput_10_000, PLUS));
-        testGeneratedExpected_100_000 = toArray(prefixScanLinear.computeSum(testGeneratedInput_100_000, PLUS));
-        testGeneratedExpected_1_000_000 = toArray(prefixScanLinear.computeSum(testGeneratedInput_1_000_000, PLUS));
+        testGeneratedExpected_1_000 = toArray(prefixScanLinear.compute(testGeneratedInput_1_000, PLUS));
+        testGeneratedExpected_10_000 = toArray(prefixScanLinear.compute(testGeneratedInput_10_000, PLUS));
+        testGeneratedExpected_100_000 = toArray(prefixScanLinear.compute(testGeneratedInput_100_000, PLUS));
+        testGeneratedExpected_1_000_000 = toArray(prefixScanLinear.compute(testGeneratedInput_1_000_000, PLUS));
     }
 
 //    @Test
@@ -57,7 +57,8 @@ public class GeneralTest {
 
     @Test
     public void testParallel() {
-        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(16);
+        ExecutorService executorService = Executors.newFixedThreadPool(16);
+        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(executorService);
         testData(prefixScanParallel, testActual1, testExpected1);
         testData(prefixScanParallel, testActual2, testExpected2);
         testData(prefixScanParallel, testActual3, testExpected3);
@@ -65,10 +66,11 @@ public class GeneralTest {
         testData(prefixScanParallel, testGeneratedInput_10_000, testGeneratedExpected_10_000);
         testData(prefixScanParallel, testGeneratedInput_100_000, testGeneratedExpected_100_000);
         testData(prefixScanParallel, testGeneratedInput_1_000_000, testGeneratedExpected_1_000_000);
+        executorService.shutdown();
     }
 
     private void testData(PrefixScan<Integer> prefixScan, Integer[] input, Integer[] expected) {
-        List<Integer> actualList = prefixScan.computeSum(input, PLUS);
+        List<Integer> actualList = prefixScan.compute(input, PLUS);
         List<Integer> expectedList = Arrays.asList(expected);
         assertEquals(expectedList.size(), actualList.size());
         compareByElement(actualList, expectedList, Arrays.asList(input));
