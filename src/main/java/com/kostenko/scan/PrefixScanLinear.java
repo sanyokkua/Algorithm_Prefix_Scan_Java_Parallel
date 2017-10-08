@@ -1,22 +1,17 @@
 package com.kostenko.scan;
 
-import com.kostenko.scan.interfaces.Function;
 import com.kostenko.scan.interfaces.PrefixScan;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.function.BiFunction;
 
 public class PrefixScanLinear implements PrefixScan<Integer> {
     @Override
-    public List<Integer> compute(Integer[] input, Function<Integer, Integer> function) {
-        if (Objects.isNull(input) || input.length == 0) {
-            throw new IllegalArgumentException("List with input can't be empty");
-        }
-        List<Integer> result = new ArrayList<>();
-        result.add(input[0]);
+    public Integer[] compute(Integer[] input, BiFunction<Integer, Integer, Integer> f) {
+        validateInput(input, f);
+        Integer[] result = new Integer[input.length];
+        result[0] = input[0];
         for (int i = 1; i < input.length; i++) {
-            result.add(function.apply(result.get(i - 1), input[i]));
+            result[i] = f.apply(result[i - 1], input[i]);
         }
         return result;
     }
