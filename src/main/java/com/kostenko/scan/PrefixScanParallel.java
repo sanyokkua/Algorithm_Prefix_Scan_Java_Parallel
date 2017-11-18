@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
@@ -17,7 +17,7 @@ import static java.lang.System.arraycopy;
 
 public class PrefixScanParallel implements PrefixScan<Integer> {
     private final ExecutorService executorService;
-    private final List<Future<?>> list;
+    private final List<Callable<Object>> list;
     private final Lock lock;
 
     public PrefixScanParallel(ExecutorService executorService) {
@@ -44,10 +44,14 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
             final int pow = pow2(d + 1);
             for (int k = 0; k < resultLength - 1; k += pow) {
                 final int K = k;
-//                list.add(executorService.submit(() -> computeResultUp(f, temporal, D, K)));
-                computeResultUp(f, temporal, D, K);
+                list.add(() -> {
+                    computeResultUp(f, temporal, D, K);
+                    return null;
+                });
+//                computeResultUp(f, temporal, D, K);
             }
-//            futureSync(list);
+            executorService.invokeAll(list);
+            list.clear();
         }
         temporal[resultLength - 1] = 0;
         for (int d = range; d >= 0; d--) {
@@ -55,24 +59,17 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
             final int D = d;
             for (int k = 0; k < resultLength - 1; k += pow) {
                 final int K = k;
-//                list.add(executorService.submit(() -> computeResultDown(f, temporal, D, K)));
-                computeResultDown(f, temporal, D, K);
+                list.add(() -> {
+                    computeResultDown(f, temporal, D, K);
+                    return null;
+                });
+//                computeResultDown(f, temporal, D, K);
             }
-//            futureSync(list);
+            executorService.invokeAll(list);
+            list.clear();
         }
         arraycopy(temporal, 1, result, 0, result.length);
         return Arrays.stream(result).sequential().boxed().toArray(Integer[]::new);
-    }
-
-    private void futureSync(List<Future<?>> list) {
-        list.forEach(future -> {
-            try {
-                future.get();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-        list.clear();
     }
 
     private void computeResultUp(BiFunction<Integer, Integer, Integer> f, int[] result, int d, int k) {

@@ -64,7 +64,7 @@ public class GeneralTest {
     @Test
     public void testParallel() throws Exception {
         System.out.println("Begin parallel tests:\n");
-        ExecutorService executorService = Executors.newFixedThreadPool(8);
+        ExecutorService executorService = Executors.newWorkStealingPool(4);
         PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(executorService);
         testData(prefixScanParallel, testActual1, testExpected1);
         testData(prefixScanParallel, testActual2, testExpected2);
