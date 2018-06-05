@@ -6,6 +6,7 @@ import org.junit.Test;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -23,6 +24,8 @@ public class GeneralTest {
     private static final Integer[] testExpected2 = new Integer[]{1, 3, 6, 10, 15, 21};
     private static final Integer[] testActual3 = new Integer[]{1, 2, 3, 4, 5, 6, 7, 8};
     private static final Integer[] testExpected3 = new Integer[]{1, 3, 6, 10, 15, 21, 28, 36};
+    private static final String DEFAULT_NUMBER_OF_RUNS = "100";
+    private int numberOfRuns;
     private Integer[] testGeneratedInput_1_000;
     private Integer[] testGeneratedExpected_1_000;
     private Integer[] testGeneratedInput_10_000;
@@ -34,6 +37,8 @@ public class GeneralTest {
 
     @Before
     public void setup() throws Exception {
+        String runs = System.getProperty("runs", DEFAULT_NUMBER_OF_RUNS);
+        numberOfRuns = Integer.parseInt(runs);
         testGeneratedInput_1_000 = generateTestData(1_000);
         testGeneratedInput_10_000 = generateTestData(10_000);
         testGeneratedInput_100_000 = generateTestData(100_000);
@@ -78,16 +83,27 @@ public class GeneralTest {
     }
 
     private void testData(PrefixScan<Integer> prefixScan, Integer[] input, Integer[] expected) throws Exception {
-        Instant before = Instant.now();
-        List<Integer> actualList = Arrays.asList(prefixScan.compute(input, PLUS));
-        Instant after = Instant.now();
-        List<Integer> expectedList = Arrays.asList(expected);
-        assertEquals(expectedList.size(), actualList.size());
-        compareByElement(actualList, expectedList, Arrays.asList(input));
+        List<Long> resultOfRuns = new ArrayList<>(numberOfRuns);
+        for (int i = 0; i < numberOfRuns; i++) {
+            Instant before = Instant.now();
+            List<Integer> actualList = Arrays.asList(prefixScan.compute(input, PLUS));
+            Instant after = Instant.now();
+            List<Integer> expectedList = Arrays.asList(expected);
+            assertEquals(expectedList.size(), actualList.size());
+            compareByElement(actualList, expectedList, Arrays.asList(input));
+            resultOfRuns.add(Duration.between(before, after).toMillis());
+        }
+        long sum = resultOfRuns.stream().reduce((first, second) -> first + second).get();
+        int size = input.length;
+        long meanTime = sum / resultOfRuns.size();
+        printResults(size, meanTime);
+    }
 
+    private void printResults(int size, long meanTime) {
         System.out.println("--------------------------------------------------------");
-        System.out.println("Number of elements: " + input.length);
-        System.out.println("Time: " + Duration.between(before, after).toMillis());
+        System.out.println("Number of runs: " + numberOfRuns);
+        System.out.println("Number of elements: " + size);
+        System.out.println("Time: " + meanTime);
         System.out.println("--------------------------------------------------------");
     }
 
@@ -95,13 +111,13 @@ public class GeneralTest {
         if (actual.size() != expected.size()) {
             throw new IllegalArgumentException("Sizes of Lists have to be equal");
         }
-//        System.out.println("Input:");
-//        System.out.println(input);
-//        System.out.println("Actual:");
-//        System.out.println(actual);
-//        System.out.println("Expected:");
-//        System.out.println(expected);
-//        System.out.println("\n");
+        //        System.out.println("Input:");
+        //        System.out.println(input);
+        //        System.out.println("Actual:");
+        //        System.out.println(actual);
+        //        System.out.println("Expected:");
+        //        System.out.println(expected);
+        //        System.out.println("\n");
         for (int i = 0; i < actual.size(); i++) {
             assertEquals(expected.get(i), actual.get(i));
         }
