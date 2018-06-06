@@ -13,7 +13,9 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
 
+import static java.lang.String.format;
 import static org.junit.Assert.assertEquals;
 
 public class GeneralTest {
@@ -67,10 +69,10 @@ public class GeneralTest {
     }
 
     @Test
-    public void testParallel() throws Exception {
-        System.out.println("Begin parallel tests:\n");
-        ExecutorService executorService = Executors.newWorkStealingPool(4);
-        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(executorService);
+    public void testParallelOff() throws Exception {
+        System.out.println("Begin parallel off tests:\n");
+        ExecutorService executorService = Executors.newWorkStealingPool(1);
+        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(executorService, false);
         testData(prefixScanParallel, testActual1, testExpected1);
         testData(prefixScanParallel, testActual2, testExpected2);
         testData(prefixScanParallel, testActual3, testExpected3);
@@ -79,7 +81,23 @@ public class GeneralTest {
         testData(prefixScanParallel, testGeneratedInput_100_000, testGeneratedExpected_100_000);
         testData(prefixScanParallel, testGeneratedInput_1_000_000, testGeneratedExpected_1_000_000);
         executorService.shutdown();
-        System.out.println("Finish parallels tests");
+        System.out.println("Finish parallels off tests");
+    }
+
+    @Test
+    public void testParallelOn() throws Exception {
+        System.out.println("Begin parallel on tests:\n");
+        ExecutorService executorService = Executors.newWorkStealingPool(4);
+        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(executorService, true);
+        testData(prefixScanParallel, testActual1, testExpected1);
+        testData(prefixScanParallel, testActual2, testExpected2);
+        testData(prefixScanParallel, testActual3, testExpected3);
+        testData(prefixScanParallel, testGeneratedInput_1_000, testGeneratedExpected_1_000);
+        testData(prefixScanParallel, testGeneratedInput_10_000, testGeneratedExpected_10_000);
+        testData(prefixScanParallel, testGeneratedInput_100_000, testGeneratedExpected_100_000);
+        testData(prefixScanParallel, testGeneratedInput_1_000_000, testGeneratedExpected_1_000_000);
+        executorService.shutdown();
+        System.out.println("Finish parallels on tests");
     }
 
     private void testData(PrefixScan<Integer> prefixScan, Integer[] input, Integer[] expected) throws Exception {
@@ -93,17 +111,17 @@ public class GeneralTest {
             compareByElement(actualList, expectedList, Arrays.asList(input));
             resultOfRuns.add(Duration.between(before, after).toMillis());
         }
-        long sum = resultOfRuns.stream().reduce((first, second) -> first + second).get();
-        int size = input.length;
-        long meanTime = sum / resultOfRuns.size();
-        printResults(size, meanTime);
+        long timeMin = resultOfRuns.stream().reduce(BinaryOperator.minBy(Long::compareTo)).get();
+        long timeMax = resultOfRuns.stream().reduce(BinaryOperator.maxBy(Long::compareTo)).get();
+        long timeAvg = (timeMin + timeMax) / 2;
+        String prefixScanName = prefixScan.getClass().getSimpleName();
+        printResults(timeMin, timeMax, timeAvg, input.length, prefixScanName);
     }
 
-    private void printResults(int size, long meanTime) {
+    private void printResults(long timeMin, long timeMax, long timeAvg, int size, String prefixScanName) {
         System.out.println("--------------------------------------------------------");
-        System.out.println("Number of runs: " + numberOfRuns);
-        System.out.println("Number of elements: " + size);
-        System.out.println("Time: " + meanTime);
+        System.out.println(format("Running by: %s, number of runs: %d, size: %d", prefixScanName, numberOfRuns, size));
+        System.out.println(format("Time: min - %d millis, max - %d millis, avg %d millis", timeMin, timeMax, timeAvg));
         System.out.println("--------------------------------------------------------");
     }
 

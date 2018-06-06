@@ -19,15 +19,22 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
     private final ExecutorService executorService;
     private final List<Callable<Object>> list;
     private final Lock lock;
+    private boolean doInParallel;
 
     public PrefixScanParallel(ExecutorService executorService) {
+        this(executorService, false);
+    }
+
+    public PrefixScanParallel(ExecutorService executorService, boolean doInParallel) {
         if (Objects.isNull(executorService)) {
             throw new IllegalArgumentException("ExecutorService is null");
         }
         this.executorService = executorService;
         this.lock = new ReentrantLock();
         this.list = new ArrayList<>();
+        this.doInParallel = doInParallel;
     }
+
 
     @Override
     public Integer[] compute(final Integer[] input, final BiFunction<Integer, Integer, Integer> f) throws InterruptedException {
@@ -44,14 +51,19 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
             final int pow = pow2(d + 1);
             for (int k = 0; k < resultLength - 1; k += pow) {
                 final int K = k;
-                list.add(() -> {
+                if (doInParallel) {
+                    list.add(() -> {
+                        computeResultUp(f, temporal, D, K);
+                        return null;
+                    });
+                } else {
                     computeResultUp(f, temporal, D, K);
-                    return null;
-                });
-//                computeResultUp(f, temporal, D, K);
+                }
             }
-            executorService.invokeAll(list);
-            list.clear();
+            if (doInParallel) {
+                executorService.invokeAll(list);
+                list.clear();
+            }
         }
         temporal[resultLength - 1] = 0;
         for (int d = range; d >= 0; d--) {
@@ -59,14 +71,19 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
             final int D = d;
             for (int k = 0; k < resultLength - 1; k += pow) {
                 final int K = k;
-                list.add(() -> {
+                if (doInParallel) {
+                    list.add(() -> {
+                        computeResultDown(f, temporal, D, K);
+                        return null;
+                    });
+                } else {
                     computeResultDown(f, temporal, D, K);
-                    return null;
-                });
-//                computeResultDown(f, temporal, D, K);
+                }
             }
-            executorService.invokeAll(list);
-            list.clear();
+            if (doInParallel) {
+                executorService.invokeAll(list);
+                list.clear();
+            }
         }
         arraycopy(temporal, 1, result, 0, result.length);
         return Arrays.stream(result).sequential().boxed().toArray(Integer[]::new);
