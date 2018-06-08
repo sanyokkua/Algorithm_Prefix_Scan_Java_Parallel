@@ -33,7 +33,9 @@ public class GeneralTest {
     private Integer[] testGeneratedInput_100_000;
     private Integer[] testGeneratedExpected_100_000;
     private Integer[] testGeneratedInput_1_000_000;
+    private Integer[] testGeneratedInput_1_000_000_0;
     private Integer[] testGeneratedExpected_1_000_000;
+    private Integer[] testGeneratedExpected_1_000_000_0;
 
     @Before
     public void setup() throws Exception {
@@ -42,7 +44,8 @@ public class GeneralTest {
         testGeneratedInput_1_000 = generateTestData(1_000);
         testGeneratedInput_10_000 = generateTestData(10_000);
         testGeneratedInput_100_000 = generateTestData(100_000);
-        testGeneratedInput_1_000_000 = generateTestData(1_000_000_0);
+        testGeneratedInput_1_000_000 = generateTestData(1_000_000);
+        testGeneratedInput_1_000_000_0 = generateTestData(1_000_000_0);
         System.out.println("Data generated");
 
         PrefixScan<Integer> prefixScanLinear = new PrefixScanLinear();
@@ -51,10 +54,10 @@ public class GeneralTest {
         testGeneratedExpected_10_000 = prefixScanLinear.compute(testGeneratedInput_10_000, PLUS);
         testGeneratedExpected_100_000 = prefixScanLinear.compute(testGeneratedInput_100_000, PLUS);
         testGeneratedExpected_1_000_000 = prefixScanLinear.compute(testGeneratedInput_1_000_000, PLUS);
+        testGeneratedExpected_1_000_000_0 = prefixScanLinear.compute(testGeneratedInput_1_000_000_0, PLUS);
     }
 
     @Test
-    @Ignore
     public void testLinear() throws Exception {
         System.out.println("Begin linear tests:\n");
         PrefixScan<Integer> prefixScanLinear = new PrefixScanLinear();
@@ -71,7 +74,7 @@ public class GeneralTest {
     @Test
     public void testParallelOff() throws Exception {
         System.out.println("Begin parallel off tests:\n");
-        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(false);
+        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel();
         testData(prefixScanParallel, testActual1, testExpected1);
         testData(prefixScanParallel, testActual2, testExpected2);
         testData(prefixScanParallel, testActual3, testExpected3);
@@ -79,6 +82,7 @@ public class GeneralTest {
         testData(prefixScanParallel, testGeneratedInput_10_000, testGeneratedExpected_10_000);
         testData(prefixScanParallel, testGeneratedInput_100_000, testGeneratedExpected_100_000);
         testData(prefixScanParallel, testGeneratedInput_1_000_000, testGeneratedExpected_1_000_000);
+        testData(prefixScanParallel, testGeneratedInput_1_000_000_0, testGeneratedExpected_1_000_000_0);
         System.out.println("Finish parallels off tests");
     }
 
@@ -93,6 +97,7 @@ public class GeneralTest {
         testData(prefixScanParallel, testGeneratedInput_10_000, testGeneratedExpected_10_000);
         testData(prefixScanParallel, testGeneratedInput_100_000, testGeneratedExpected_100_000);
         testData(prefixScanParallel, testGeneratedInput_1_000_000, testGeneratedExpected_1_000_000);
+        testData(prefixScanParallel, testGeneratedInput_1_000_000_0, testGeneratedExpected_1_000_000_0);
         System.out.println("Finish parallels on tests");
     }
 
@@ -109,15 +114,15 @@ public class GeneralTest {
         }
         long timeMin = resultOfRuns.stream().reduce(BinaryOperator.minBy(Long::compareTo)).get();
         long timeMax = resultOfRuns.stream().reduce(BinaryOperator.maxBy(Long::compareTo)).get();
-        long timeAvg = (timeMin + timeMax) / 2;
+        double timeAverage = resultOfRuns.stream().mapToLong(Long::longValue).average().getAsDouble();
         String prefixScanName = prefixScan.getClass().getSimpleName();
-        printResults(timeMin, timeMax, timeAvg, input.length, prefixScanName);
+        printResults(timeMin, timeMax, timeAverage, input.length, prefixScanName);
     }
 
-    private void printResults(long timeMin, long timeMax, long timeAvg, int size, String prefixScanName) {
+    private void printResults(long timeMin, long timeMax, double timeAvg, int size, String prefixScanName) {
         System.out.println("--------------------------------------------------------");
         System.out.println(format("Running by: %s, number of runs: %d, size: %d", prefixScanName, numberOfRuns, size));
-        System.out.println(format("Time: min - %d millis, max - %d millis, avg %d millis", timeMin, timeMax, timeAvg));
+        System.out.println(format("Time: min - %d millis, max - %d millis, avg %s millis", timeMin, timeMax, timeAvg));
         System.out.println("--------------------------------------------------------");
     }
 

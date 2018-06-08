@@ -12,109 +12,89 @@ import static com.kostenko.scan.utils.Utils.*;
 import static java.lang.System.arraycopy;
 
 public class PrefixScanParallel implements PrefixScan<Integer> {
-    private int size;
     private ExecutorService executorService;
     private boolean doInParallel;
     private int numberOfThreads;
-    private int resultLength;
-    private int[] temporal;
+    private int resultArrayLength;
+    private int[] tempResultArray;
     private CountDownLatch countDownLatch;
 
-    public PrefixScanParallel(boolean doInParallel) {
-        this(doInParallel, 2);
+    public PrefixScanParallel() {
+        this(false, 1);
     }
 
     public PrefixScanParallel(boolean doInParallel, int numberOfThreads) {
         this.doInParallel = doInParallel;
         this.numberOfThreads = numberOfThreads;
-
     }
 
     @Override
     public Integer[] compute(final Integer[] input, final BiFunction<Integer, Integer, Integer> f) throws InterruptedException {
         validateInput(input, f);
         this.executorService = Executors.newWorkStealingPool(numberOfThreads);
-        int inputLength = input.length;
-        resultLength = findPowerOf2Size(inputLength + 1);
-        size = resultLength / numberOfThreads;
-        int range = log2(resultLength) - 1;
+        int inputArrayLength = input.length;
+        resultArrayLength = findPowerOf2Size(inputArrayLength + 1);
+        int range = log2(resultArrayLength) - 1;
+        tempResultArray = new int[resultArrayLength];
+        int[] resultArray = new int[inputArrayLength];
 
-        temporal = new int[resultLength];
-        int[] result = new int[inputLength];
-
-        arraycopy(Arrays.stream(input).mapToInt(Integer::intValue).toArray(), 0, temporal, 0, inputLength);
+        arraycopy(Arrays.stream(input).mapToInt(Integer::intValue).toArray(), 0, tempResultArray, 0, inputArrayLength);
 
         for (int d = 0; d <= range; d++) {
-            doInParallelUp(f, d);
+            doInParallel(f, d, computeUp);
         }
-        temporal[resultLength - 1] = 0;
-
+        tempResultArray[resultArrayLength - 1] = 0;
         for (int d = range; d >= 0; d--) {
-            doInParallelDown(f, d);
+            doInParallel(f, d, computeDown);
         }
 
-        arraycopy(temporal, 1, result, 0, result.length);
+        arraycopy(tempResultArray, 1, resultArray, 0, resultArray.length);
         executorService.shutdown();
-        return Arrays.stream(result).sequential().boxed().toArray(Integer[]::new);
+        return Arrays.stream(resultArray).sequential().boxed().toArray(Integer[]::new);
     }
 
-    private void doInParallelUp(BiFunction<Integer, Integer, Integer> f, int d) throws InterruptedException {
+    private void doInParallel(BiFunction<Integer, Integer, Integer> f, int d, Compute computeFunction) throws InterruptedException {
         final int pow = pow2(d + 1);
-        if (isDoInParallel(resultLength)) {
-            Map<Integer, List<Integer>> map = generateK(pow, size);
-            countDownLatch = new CountDownLatch(map.size());
-            map.forEach((thread, listOfK) -> executorService.execute(() -> {
-                listOfK.forEach(k -> computeResultUp(f, temporal, d, k));
-                countDownLatch.countDown();
-            }));
+        if (doInParallel) {
+            countDownLatch = new CountDownLatch(numberOfThreads);
+            final int arraySizePerThread = resultArrayLength / numberOfThreads;
+            int boundPerThread = arraySizePerThread;
+            int numberOfKPerThread = boundPerThread / pow;
+            int K = 0;
+            int powStep = numberOfKPerThread == 0 ? pow : pow * numberOfKPerThread;
+            for (int threadId = 0; threadId < numberOfThreads; threadId++) {
+                final int finalK = K;
+                final int finalBound = boundPerThread;
+                executorService.execute(() -> {
+                    int k = finalK;
+                    do {
+                        if (k < resultArrayLength - 1) {
+                            computeFunction.compute(f, tempResultArray, d, k);
+                            k += pow;
+                        }
+                    } while ((k < finalBound) && k < resultArrayLength - 1);
+                    countDownLatch.countDown();
+                });
+                boundPerThread += arraySizePerThread;
+                K += powStep;
+            }
             countDownLatch.await();
         } else {
-            for (int k = 0; k < resultLength - 1; k += pow) {
-                computeResultUp(f, temporal, d, k);
+            for (int k = 0; k < resultArrayLength - 1; k += pow) {
+                computeFunction.compute(f, tempResultArray, d, k);
             }
         }
     }
 
-    private Map<Integer, List<Integer>> generateK(int pow, int size) {
-        Map<Integer, List<Integer>> map = new HashMap<>();
-        for (int i = 0, k = 0; i < numberOfThreads && k < resultLength - 1; i++) {
-            List<Integer> tmp = new LinkedList<>();
-            for (int j = 0; j < size && k < resultLength - 1; j++, k += pow) {
-                tmp.add(k);
-            }
-            map.put(i, tmp);
-        }
-        return map;
-    }
+    private final Compute computeUp = (f, result, d, k) -> result[k + pow2(d + 1) - 1] = f.apply(result[k + pow2(d) - 1], result[k + pow2(d + 1) - 1]);
 
-    private void doInParallelDown(BiFunction<Integer, Integer, Integer> f, int d) throws InterruptedException {
-        final int pow = pow2(d + 1);
-        if (isDoInParallel(resultLength)) {
-            Map<Integer, List<Integer>> map = generateK(pow, size);
-            countDownLatch = new CountDownLatch(map.size());
-            map.forEach((thread, listOfK) -> executorService.execute(() -> {
-                listOfK.forEach(k -> computeResultDown(f, temporal, d, k));
-                countDownLatch.countDown();
-            }));
-            countDownLatch.await();
-        } else {
-            for (int k = 0; k < resultLength - 1; k += pow) {
-                computeResultDown(f, temporal, d, k);
-            }
-        }
-    }
-
-    private boolean isDoInParallel(int arrayLength) {
-        return arrayLength > 100 && doInParallel;
-    }
-
-    private void computeResultUp(BiFunction<Integer, Integer, Integer> f, int[] result, int d, int k) {
-        result[k + pow2(d + 1) - 1] = f.apply(result[k + pow2(d) - 1], result[k + pow2(d + 1) - 1]);
-    }
-
-    private void computeResultDown(BiFunction<Integer, Integer, Integer> f, int[] result, int d, int k) {
+    private final Compute computeDown = (f, result, d, k) -> {
         int temp = result[k + pow2(d) - 1];
         result[k + pow2(d) - 1] = result[k + pow2(d + 1) - 1];
         result[k + pow2(d + 1) - 1] = f.apply(temp, result[k + pow2(d + 1) - 1]);
+    };
+
+    private interface Compute {
+        void compute(BiFunction<Integer, Integer, Integer> f, int[] result, int d, int k);
     }
 }
