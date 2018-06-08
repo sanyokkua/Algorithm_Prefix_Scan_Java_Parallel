@@ -2,6 +2,7 @@ package com.kostenko.scan;
 
 import com.kostenko.scan.interfaces.PrefixScan;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.time.Duration;
@@ -10,8 +11,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 
@@ -26,7 +25,6 @@ public class GeneralTest {
     private static final Integer[] testExpected2 = new Integer[]{1, 3, 6, 10, 15, 21};
     private static final Integer[] testActual3 = new Integer[]{1, 2, 3, 4, 5, 6, 7, 8};
     private static final Integer[] testExpected3 = new Integer[]{1, 3, 6, 10, 15, 21, 28, 36};
-    private static final String DEFAULT_NUMBER_OF_RUNS = "100";
     private int numberOfRuns;
     private Integer[] testGeneratedInput_1_000;
     private Integer[] testGeneratedExpected_1_000;
@@ -39,12 +37,13 @@ public class GeneralTest {
 
     @Before
     public void setup() throws Exception {
-        String runs = System.getProperty("runs", DEFAULT_NUMBER_OF_RUNS);
+        String runs = System.getProperty("runs", "100");
         numberOfRuns = Integer.parseInt(runs);
         testGeneratedInput_1_000 = generateTestData(1_000);
         testGeneratedInput_10_000 = generateTestData(10_000);
         testGeneratedInput_100_000 = generateTestData(100_000);
-        testGeneratedInput_1_000_000 = generateTestData(1_000_000);
+        testGeneratedInput_1_000_000 = generateTestData(1_000_000_0);
+        System.out.println("Data generated");
 
         PrefixScan<Integer> prefixScanLinear = new PrefixScanLinear();
 
@@ -55,6 +54,7 @@ public class GeneralTest {
     }
 
     @Test
+    @Ignore
     public void testLinear() throws Exception {
         System.out.println("Begin linear tests:\n");
         PrefixScan<Integer> prefixScanLinear = new PrefixScanLinear();
@@ -71,8 +71,7 @@ public class GeneralTest {
     @Test
     public void testParallelOff() throws Exception {
         System.out.println("Begin parallel off tests:\n");
-        ExecutorService executorService = Executors.newWorkStealingPool(1);
-        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(executorService, false);
+        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(false);
         testData(prefixScanParallel, testActual1, testExpected1);
         testData(prefixScanParallel, testActual2, testExpected2);
         testData(prefixScanParallel, testActual3, testExpected3);
@@ -80,15 +79,13 @@ public class GeneralTest {
         testData(prefixScanParallel, testGeneratedInput_10_000, testGeneratedExpected_10_000);
         testData(prefixScanParallel, testGeneratedInput_100_000, testGeneratedExpected_100_000);
         testData(prefixScanParallel, testGeneratedInput_1_000_000, testGeneratedExpected_1_000_000);
-        executorService.shutdown();
         System.out.println("Finish parallels off tests");
     }
 
     @Test
     public void testParallelOn() throws Exception {
         System.out.println("Begin parallel on tests:\n");
-        ExecutorService executorService = Executors.newWorkStealingPool(4);
-        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(executorService, true);
+        PrefixScan<Integer> prefixScanParallel = new PrefixScanParallel(true, 4);
         testData(prefixScanParallel, testActual1, testExpected1);
         testData(prefixScanParallel, testActual2, testExpected2);
         testData(prefixScanParallel, testActual3, testExpected3);
@@ -96,7 +93,6 @@ public class GeneralTest {
         testData(prefixScanParallel, testGeneratedInput_10_000, testGeneratedExpected_10_000);
         testData(prefixScanParallel, testGeneratedInput_100_000, testGeneratedExpected_100_000);
         testData(prefixScanParallel, testGeneratedInput_1_000_000, testGeneratedExpected_1_000_000);
-        executorService.shutdown();
         System.out.println("Finish parallels on tests");
     }
 
