@@ -12,7 +12,7 @@ import static com.kostenko.scan.utils.Utils.*;
 import static java.lang.System.arraycopy;
 
 public class PrefixScanParallel implements PrefixScan<Integer> {
-    private final int size;
+    private int size;
     private ExecutorService executorService;
     private boolean doInParallel;
     private int numberOfThreads;
@@ -27,7 +27,7 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
     public PrefixScanParallel(boolean doInParallel, int numberOfThreads) {
         this.doInParallel = doInParallel;
         this.numberOfThreads = numberOfThreads;
-        this.size = resultLength / numberOfThreads;
+
     }
 
     @Override
@@ -36,6 +36,7 @@ public class PrefixScanParallel implements PrefixScan<Integer> {
         this.executorService = Executors.newWorkStealingPool(numberOfThreads);
         int inputLength = input.length;
         resultLength = findPowerOf2Size(inputLength + 1);
+        size = resultLength / numberOfThreads;
         int range = log2(resultLength) - 1;
 
         temporal = new int[resultLength];
